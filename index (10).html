@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Portfolio Performance — NelsonCorp Wealth Management</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green:        #2d6a4f;
+    --green-dark:   #1b4332;
+    --green-mid:    #40916c;
+    --green-light:  #d8f3dc;
+    --green-xlight: #f0faf2;
+    --gold:         #c9a84c;
+    --gold-light:   #f0d080;
+    --gold-xlight:  #fdf8ec;
+    --white:        #ffffff;
+    --off-white:    #f8f9f7;
+    --light-gray:   #eef0eb;
+    --mid-gray:     #c4cbbf;
+    --border:       #dde5d8;
+    --text-dark:    #1b2e1f;
+    --text-mid:     #3d5240;
+    --text-light:   #7a917e;
+    --pos:          #1a6b3c;
+    --neg:          #b83232;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Source Sans 3', sans-serif; font-size: 16px; background: var(--off-white); color: var(--text-dark); min-height: 100vh; }
+
+  /* HEADER */
+  .site-header { background: var(--green-dark); padding: 0 44px; display: flex; align-items: center; justify-content: space-between; height: 78px; border-bottom: 4px solid var(--gold); flex-wrap: wrap; gap: 10px; }
+  .logo-area { display: flex; align-items: center; gap: 16px; }
+  .logo-img { height: 46px; object-fit: contain; filter: brightness(0) invert(1); }
+  .logo-divider { width: 1px; height: 34px; background: rgba(255,255,255,0.2); }
+  .logo-sub { font-size: 0.85rem; color: rgba(255,255,255,0.55); letter-spacing: 0.1em; text-transform: uppercase; }
+  .header-date { font-size: 0.88rem; color: rgba(255,255,255,0.5); }
+
+  /* TITLE BAR */
+  .title-bar { background: var(--green); padding: 20px 44px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .title-bar h1 { font-family: 'Merriweather', serif; font-size: 1.45rem; font-weight: 400; color: var(--white); }
+  .title-bar h1 span { color: var(--gold-light); }
+  .title-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .update-info { font-size: 0.82rem; color: rgba(255,255,255,0.55); }
+  .status-badge { display: flex; align-items: center; gap: 7px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.15); padding: 5px 13px; border-radius: 20px; font-size: 0.78rem; color: rgba(255,255,255,0.65); letter-spacing: 0.04em; }
+  .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--mid-gray); flex-shrink: 0; }
+  .sdot.live    { background: #52d68a; animation: pulse 2.5s ease-in-out infinite; }
+  .sdot.loading { background: var(--gold); }
+  .sdot.error   { background: #e06060; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(82,214,138,0.4)} 50%{opacity:.8;box-shadow:0 0 0 5px rgba(82,214,138,0)} }
+
+  /* MAIN */
+  .main { max-width: 1380px; margin: 0 auto; padding: 36px 44px 70px; }
+
+  /* SPINNER */
+  .spinner { width: 42px; height: 42px; border: 3px solid var(--light-gray); border-top-color: var(--green-mid); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* DASHBOARD */
+  #dashboard { display: none; animation: fadeUp 0.4s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .dash-controls { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; justify-content: space-between; }
+  .dash-controls-left { display: flex; gap: 12px; align-items: center; }
+  .dash-source { font-size: 0.78rem; color: var(--text-light); }
+
+  /* BUTTONS */
+  .btn-outline { background: var(--white); border: 1.5px solid var(--border); color: var(--text-mid); font-family: 'Source Sans 3', sans-serif; font-size: 0.88rem; font-weight: 600; padding: 9px 20px; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
+  .btn-outline:hover { border-color: var(--green); color: var(--green); background: var(--green-xlight); }
+
+  /* SECTION */
+  .section-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; margin-top: 36px; }
+  .section-header:first-child { margin-top: 0; }
+  .section-title { font-family: 'Merriweather', serif; font-size: 1.05rem; font-weight: 700; color: var(--green-dark); white-space: nowrap; }
+  .section-rule { flex: 1; height: 1px; background: var(--border); }
+  .section-tag { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-light); background: var(--light-gray); padding: 4px 11px; border-radius: 20px; white-space: nowrap; }
+
+  /* CARDS */
+  .cards-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); gap: 16px; margin-bottom: 8px; }
+  .card { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 18px 20px 16px; position: relative; box-shadow: 0 1px 5px rgba(0,0,0,0.05); transition: box-shadow 0.2s, transform 0.2s; }
+  .card:hover { box-shadow: 0 5px 16px rgba(0,0,0,0.1); transform: translateY(-1px); }
+  .card-accent { position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: 6px 6px 0 0; background: var(--mid-gray); }
+  .card.bench   .card-accent { background: var(--green-mid); }
+  .card.positive .card-accent { background: var(--pos); }
+  .card.negative .card-accent { background: var(--neg); }
+  .card-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-light); margin-bottom: 10px; }
+  .card-value { font-family: 'Merriweather', serif; font-size: 1.75rem; font-weight: 700; line-height: 1; }
+  .card-value.pos { color: var(--pos); }
+  .card-value.neg { color: var(--neg); }
+  .card-value.neu { color: var(--text-dark); }
+  .card-type { font-size: 0.75rem; color: var(--text-light); margin-top: 5px; }
+  .card-divider { height: 1px; background: var(--light-gray); margin: 12px 0; }
+  .card-row { display: flex; justify-content: space-between; font-size: 0.84rem; color: var(--text-light); margin-top: 5px; }
+  .card-row .val { font-weight: 700; }
+  .card-row .val.pos { color: var(--pos); }
+  .card-row .val.neg { color: var(--neg); }
+  .card-row .val.neu { color: var(--text-dark); }
+
+  /* CHART */
+  .chart-card { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 26px; box-shadow: 0 1px 5px rgba(0,0,0,0.05); }
+  .chart-card canvas { max-height: 270px; }
+
+  /* PANELS */
+  .panel { background: var(--white); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,0.05); }
+  .panel-header { background: var(--green-dark); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 2px solid var(--gold); }
+  .panel-title { font-family: 'Merriweather', serif; font-size: 0.95rem; font-weight: 400; color: var(--white); }
+  .panel-return { font-weight: 700; padding: 3px 11px; border-radius: 4px; font-size: 0.88rem; }
+  .panel-return.pos { background: rgba(26,107,60,0.3); color: #90dfb0; }
+  .panel-return.neg { background: rgba(184,50,50,0.3); color: #f5a0a0; }
+  .panel-return.neu { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+  .panel-bench { font-size: 0.78rem; color: rgba(255,255,255,0.5); }
+  .panel-bench .pos { color: #90dfb0; font-weight: 700; }
+  .panel-bench .neg { color: #f5a0a0; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--green-xlight); }
+  th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--green-dark); padding: 11px 18px; text-align: right; border-bottom: 2px solid var(--border); }
+  th:first-child { text-align: left; }
+  td { font-size: 0.9rem; padding: 11px 18px; text-align: right; border-bottom: 1px solid var(--light-gray); color: var(--text-mid); }
+  td:first-child { text-align: left; color: var(--text-dark); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--green-xlight); }
+  td.pos { color: var(--pos); font-weight: 700; }
+  td.neg { color: var(--neg); font-weight: 700; }
+  .total-row td { background: var(--green-light) !important; font-weight: 700; border-top: 2px solid var(--border); border-bottom: none !important; color: var(--green-dark); }
+  .total-row td.pos { color: var(--pos); }
+  .total-row td.neg { color: var(--neg); }
+  .ticker-tag { display: inline-block; background: var(--green-dark); color: var(--white); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 3px; }
+
+  /* HOLDINGS SELECTOR */
+  .holdings-selector-row { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .holdings-select {
+    font-family: 'Source Sans 3', sans-serif; font-size: 0.92rem; font-weight: 600;
+    color: var(--text-dark); background: var(--white);
+    border: 1.5px solid var(--border); border-radius: 5px;
+    padding: 9px 36px 9px 14px; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a917e' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    min-width: 220px; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .holdings-select:hover { border-color: var(--green); }
+  .holdings-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(45,106,79,0.12); }
+  .holdings-panel-wrap { animation: fadeUp 0.25s ease; }
+
+  /* FOOTER */
+  .site-footer { background: var(--green-dark); border-top: 3px solid var(--gold); padding: 22px 44px; text-align: center; font-size: 0.75rem; color: rgba(255,255,255,0.35); line-height: 1.9; margin-top: 60px; }
+</style>
+</head>
+<body>
+
+<div class="site-header">
+  <div class="logo-area">
+    <img src="https://nelsoncorp.com/wp-content/uploads/2025/06/NelsonCorp-Logo-2025.png" alt="NelsonCorp" class="logo-img" onerror="this.style.display='none';document.querySelector('.logo-fallback').style.display='block'">
+    <div class="logo-fallback" style="display:none;font-family:'Merriweather',serif;color:#fff;font-size:1.1rem;font-weight:700">NelsonCorp Wealth Management</div>
+    <div class="logo-divider"></div>
+    <div class="logo-sub">Portfolio Analytics</div>
+  </div>
+  <div class="header-date" id="header-date"></div>
+</div>
+
+<div class="title-bar">
+  <h1>Daily Portfolio <span>Performance Dashboard</span></h1>
+  <div class="title-meta">
+    <div class="status-badge"><span class="sdot loading" id="sdot"></span><span id="stext">Connecting...</span></div>
+    <div class="update-info" id="update-info"></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LOADING BANNER -->
+  <div id="price-loading-banner" style="background:var(--green-xlight);border:1px solid var(--border);border-radius:6px;padding:12px 20px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:0.85rem;color:var(--text-mid);">
+    <div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;flex-shrink:0;"></div>
+    <span id="banner-text">Loading portfolio data...</span>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <div class="dash-controls">
+      <div class="dash-controls-left">
+        <button class="btn-outline" onclick="fetchAllPrices()">↻ Refresh Prices</button>
+        <label class="btn-outline" style="font-size:0.8rem;padding:8px 14px;cursor:pointer;">
+          📂 Upload YTD Data
+          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+        </label>
+      </div>
+      <div class="dash-source" id="dash-source"></div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Market Benchmarks</div>
+      <div class="section-rule"></div>
+      <div class="section-tag">Daily · YTD</div>
+    </div>
+    <div class="cards-row" id="bench-cards"></div>
+
+    <div class="section-header">
+      <div class="section-title">Portfolio Models</div>
+      <div class="section-rule"></div>
+      <div class="section-tag">Daily · YTD · vs Benchmark</div>
+    </div>
+    <div class="cards-row" id="model-cards"></div>
+
+    <div class="section-header">
+      <div class="section-title">Performance Comparison</div>
+      <div class="section-rule"></div>
+    </div>
+    <div class="chart-card" style="margin-bottom:8px">
+      <canvas id="perf-chart"></canvas>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Holdings Detail</div>
+      <div class="section-rule"></div>
+    </div>
+    <div class="holdings-selector-row">
+      <select class="holdings-select" id="holdings-select" onchange="showSelectedPortfolio()">
+        <option value="">— Select a portfolio —</option>
+      </select>
+    </div>
+    <div id="holdings-panels"></div>
+  </div>
+
+</div>
+
+<div class="site-footer">
+  NelsonCorp Wealth Management &nbsp;·&nbsp; Internal Use Only &nbsp;·&nbsp; 880 13th Avenue North, Clinton, Iowa 52732<br>
+  Securities offered through Registered Representatives of Cambridge Investment Research, Inc., a broker-dealer, member FINRA/SIPC.
+  Advisory services through Cambridge Investment Research Advisors, Inc., a Registered Investment Advisor.
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  NELSONCORP DASHBOARD
+//  • Live ETF prices (daily return) → Finnhub, every 1 min
+//  • YTD = spreadsheet YTD (yesterday's close) + today's live daily
+//  • Holdings auto-loaded from GitHub Excel on page load
+//  • Upload button refreshes YTD numbers daily
+// ═══════════════════════════════════════════════════════════════════
+
+const FINNHUB_KEY  = 'd6b2sl9r01qnr27jfc2gd6b2sl9r01qnr27jfc30';
+const REFRESH_MS   = 60 * 1000;
+const GITHUB_EXCEL = 'https://raw.githubusercontent.com/aeck24-cmyk/portfolio-dashboard/main/NCorp_Daily_Portfolio_Performance.xlsx';
+
+// ── BENCHMARKS ─────────────────────────────────────────────────────
+// dashName must match col A of Dashboard sheet exactly
+const BENCHMARKS = [
+  { name: 'S&P 500',     ticker: 'VOO',  dashName: 'S&P 500'    },
+  { name: 'Dow Jones',   ticker: 'DIA',  dashName: 'Dow'        },
+  { name: 'Nasdaq 100',  ticker: 'QQQ',  dashName: 'Nasdaq 100' },
+  { name: 'U.S. Bonds',  ticker: 'AGG',  dashName: 'U.S. Bonds' },
+  { name: 'U.S. Dollar', ticker: 'UUP',  dashName: 'U.S. Dollar'},
+  { name: 'Commodities', ticker: 'PDBC', dashName: 'Commodities'},
+];
+
+// ── MODELS (hardcoded as fallback — auto-overridden by GitHub Excel) ─
+const MODELS_DEFAULT = [
+  { name: 'Moderate', holdings: [
+    { ticker:'CASH',weight:0.02},{ ticker:'TLT',weight:0.0567},{ ticker:'USHY',weight:0.0567},
+    { ticker:'TIP',weight:0.0567},{ ticker:'VTI',weight:0.1575},{ ticker:'SPHB',weight:0.0481},
+    { ticker:'XLK',weight:0.0481},{ ticker:'AMLP',weight:0.0481},{ ticker:'SPMO',weight:0.0481},
+    { ticker:'VEA',weight:0.06},{ ticker:'VWO',weight:0.06},{ ticker:'DIA',weight:0.1307},
+    { ticker:'QQQM',weight:0.056},{ ticker:'SPYM',weight:0.0933},{ ticker:'SFLR',weight:0.06},
+  ]},
+  { name: 'Abs Rtn Moderate', holdings: [
+    { ticker:'CASH',weight:0.01},{ ticker:'TLT',weight:0.0367},{ ticker:'USHY',weight:0.0367},
+    { ticker:'TIP',weight:0.0367},{ ticker:'SPHB',weight:0.025},{ ticker:'XLK',weight:0.025},
+    { ticker:'AMLP',weight:0.025},{ ticker:'SPMO',weight:0.025},{ ticker:'VEA',weight:0.0975},
+    { ticker:'VWO',weight:0.0975},{ ticker:'DIA',weight:0.2123},{ ticker:'QQQM',weight:0.091},
+    { ticker:'SPYM',weight:0.1516},{ ticker:'SFLR',weight:0.05},{ ticker:'INDS',weight:0.02},
+    { ticker:'SRVR',weight:0.02},{ ticker:'PDBC',weight:0.04},
+  ]},
+  { name: 'Tax Moderate', holdings: [
+    { ticker:'CASH',weight:0.02},{ ticker:'BOXX',weight:0.13},{ ticker:'MEAR',weight:0.06},
+    { ticker:'PFFV',weight:0.09},{ ticker:'VTI',weight:0.21},{ ticker:'OMFL',weight:0.09},
+    { ticker:'PTLC',weight:0.08},{ ticker:'PTNQ',weight:0.12},{ ticker:'DIA',weight:0.0933},
+    { ticker:'QQQM',weight:0.04},{ ticker:'SPYM',weight:0.0667},
+  ]},
+  { name: 'Aggressive', holdings: [
+    { ticker:'CASH',weight:0.01},{ ticker:'VTI',weight:0.2295},{ ticker:'SPHB',weight:0.0701},
+    { ticker:'XLK',weight:0.0701},{ ticker:'AMLP',weight:0.0701},{ ticker:'SPMO',weight:0.0701},
+    { ticker:'VEA',weight:0.063},{ ticker:'VWO',weight:0.063},{ ticker:'DIA',weight:0.1373},
+    { ticker:'QQQM',weight:0.0588},{ ticker:'SPYM',weight:0.098},{ ticker:'SFLR',weight:0.06},
+  ]},
+  { name: 'All Tactical', holdings: [
+    { ticker:'CASH',weight:0.01},{ ticker:'DIA',weight:0.27538},{ ticker:'QQQM',weight:0.11802},
+    { ticker:'VEA',weight:0.125},{ ticker:'VWO',weight:0.125},{ ticker:'SPYM',weight:0.1966},
+    { ticker:'SPHB',weight:0.15},
+  ]},
+  { name: 'Macro', holdings: [
+    { ticker:'CASH',weight:0.01},{ ticker:'SPHB',weight:0.2475},{ ticker:'AMLP',weight:0.2475},
+    { ticker:'XLK',weight:0.2475},{ ticker:'SPMO',weight:0.2475},
+  ]},
+];
+
+// ── STATE ───────────────────────────────────────────────────────────
+let etfPrices    = {};              // ticker → { daily }
+let benchYTD     = {};              // dashName → ytd as-of-yesterday (from Excel)
+let modelYTD     = {};              // model name → ytd as-of-yesterday (from Excel)
+let models       = MODELS_DEFAULT;  // overridden by GitHub Excel
+let holdings     = [];              // parsed from Excel for Holdings Detail
+let chartInst    = null;
+let priceTimer   = null;
+
+// ── INIT ────────────────────────────────────────────────────────────
+document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US',{
+  weekday:'long', year:'numeric', month:'long', day:'numeric'
+});
+
+// Restore YTD from localStorage if available
+try {
+  const saved = localStorage.getItem('ncorp_ytd');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    benchYTD = parsed.benchYTD || {};
+    modelYTD = parsed.modelYTD || {};
+  }
+} catch(e) {}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('dashboard').style.display = 'block';
+  setBanner('Loading portfolio weights from GitHub...');
+  await loadGithubExcel();   // load holdings + weights first
+  fetchAllPrices();           // then start live prices
+});
+
+// ── GITHUB EXCEL LOAD (weights + holdings, auto on page load) ───────
+async function loadGithubExcel() {
+  try {
+    const res = await fetch(GITHUB_EXCEL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const buf = await res.arrayBuffer();
+    parseExcel(buf, 'github', false); // false = don't update YTD
+    console.log('GitHub Excel loaded — weights and holdings updated');
+  } catch(e) {
+    console.warn('Could not load GitHub Excel, using hardcoded weights:', e);
+  }
+}
+
+// ── MANUAL UPLOAD (YTD + weights + holdings) ────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => parseExcel(ev.target.result, file.name, true); // true = update YTD
+  reader.readAsArrayBuffer(file);
+  e.target.value = ''; // reset so same file can be re-uploaded
+});
+
+// ── PARSE EXCEL ─────────────────────────────────────────────────────
+function parseExcel(buffer, source, updateYTD) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const sheets = {};
+  wb.SheetNames.forEach(n => {
+    sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '' });
+  });
+
+  // Always parse weights + holdings from NelsonCorp sheet
+  const { parsedModels, parsedHoldings } = parseNelsonCorpSheet(sheets['NelsonCorp'] || []);
+  if (parsedModels.length) models = parsedModels;
+  holdings = parsedHoldings;
+
+  // Only update YTD from manual upload
+  if (updateYTD) {
+    const { bYTD, mYTD } = parseDashboardYTD(sheets['Dashboard'] || []);
+    benchYTD = bYTD;
+    modelYTD = mYTD;
+    // Persist to localStorage
+    try { localStorage.setItem('ncorp_ytd', JSON.stringify({ benchYTD, modelYTD })); } catch(e) {}
+    document.getElementById('update-info').textContent =
+      'YTD updated ' + new Date().toLocaleTimeString('en-US', { timeStyle: 'short' });
+  }
+
+  document.getElementById('dash-source').textContent = updateYTD
+    ? '↻ Prices auto-refresh every minute · YTD loaded from: ' + source
+    : '↻ Prices auto-refresh every minute · YTD: ' + (Object.keys(modelYTD).length ? 'loaded ✓' : 'upload Excel to populate');
+
+  renderAll();
+}
+
+// ── PARSE NelsonCorp SHEET → models (weights) + holdings (for table) ─
+function parseNelsonCorpSheet(rows) {
+  const parsedModels   = [];
+  const parsedHoldings = [];
+
+  let modelName = null, mHoldings = [], hHoldings = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r     = rows[i];
+    const first = String(r[0] || '').trim();
+    const w     = parseFloat(r[1]);
+
+    // Model name row: text in col A, no valid weight in col B
+    if (first && first !== 'Ticker' && (isNaN(w) || r[1] === '')) {
+      if (modelName && mHoldings.length) {
+        parsedModels.push({ name: toTitleCase(modelName), holdings: mHoldings });
+        parsedHoldings.push({ name: toTitleCase(modelName), holdings: hHoldings });
+      }
+      modelName = first;
+      mHoldings = [];
+      hHoldings = [];
+      continue;
+    }
+    if (first === 'Ticker') continue;
+
+    // Total row: no ticker, weight ≈ 1
+    if (!first && Math.abs(w - 1) < 0.001) {
+      // Store the total/bench from spreadsheet as fallback
+      // but we'll recalculate live in showSelectedPortfolio
+      const spreadsheetTotal = parseFloat(r[3]);
+      const spreadsheetBench = parseFloat(r[4]);
+      if (modelName) {
+        // attach to last holdings entry as metadata
+        hHoldings._total = isNaN(spreadsheetTotal) ? null : spreadsheetTotal;
+        hHoldings._bench = isNaN(spreadsheetBench) ? null : spreadsheetBench;
+      }
+      continue;
+    }
+
+    // Holding row
+    if (first && first !== 'NaN' && !isNaN(w) && w > 0) {
+      mHoldings.push({ ticker: first, weight: w });
+      hHoldings.push({ ticker: first, weight: w });
+    }
+  }
+
+  // Push last model
+  if (modelName && mHoldings.length) {
+    parsedModels.push({ name: toTitleCase(modelName), holdings: mHoldings });
+    parsedHoldings.push({ name: toTitleCase(modelName), holdings: hHoldings });
+  }
+
+  return { parsedModels, parsedHoldings };
+}
+
+// Convert "ABS RTN MODERATE" → "Abs Rtn Moderate"
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
+// ── PARSE DASHBOARD SHEET → YTD figures ─────────────────────────────
+function parseDashboardYTD(rows) {
+  const bYTD = {};
+  const mYTD = {};
+  const benchDashNames = new Set(BENCHMARKS.map(b => b.dashName));
+
+  for (let i = 0; i < rows.length; i++) {
+    const r    = rows[i];
+    if (!r[0] || r[0] === 'Model') continue;
+    const name = String(r[0]).trim();
+    const ytd  = parseFloat(r[4]);
+    if (isNaN(ytd)) continue;
+
+    if (benchDashNames.has(name)) {
+      bYTD[name] = ytd;
+    } else {
+      // Store under title-cased name to match model names
+      mYTD[toTitleCase(name)] = ytd;
+    }
+  }
+  return { bYTD, mYTD };
+}
+
+// ── FINNHUB LIVE PRICES ─────────────────────────────────────────────
+function allTickers() {
+  const s = new Set();
+  BENCHMARKS.forEach(b => s.add(b.ticker));
+  models.forEach(m => m.holdings.forEach(h => { if (h.ticker !== 'CASH') s.add(h.ticker); }));
+  return [...s];
+}
+
+async function fetchAllPrices() {
+  setBanner('Fetching live prices...');
+  setStatus('loading', 'Fetching prices...');
+
+  const tickers   = allTickers();
+  const newPrices = {};
+  let fetched     = 0;
+
+  for (const ticker of tickers) {
+    try {
+      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
+      if (!res.ok) continue;
+      const q = await res.json();
+      if (!q || !q.c || !q.pc) continue;
+      newPrices[ticker] = { daily: (q.c - q.pc) / q.pc };
+      fetched++;
+    } catch(e) {
+      console.warn('Finnhub failed for', ticker, e);
+    }
+  }
+
+  hideBanner();
+
+  if (fetched === 0) {
+    setStatus('error', 'Price fetch failed');
+    document.getElementById('update-info').textContent = 'Could not reach Finnhub — check connection';
+    return;
+  }
+
+  etfPrices = newPrices;
+  setStatus('live', `Live · Finnhub (${fetched}/${tickers.length} tickers)`);
+  document.getElementById('update-info').textContent =
+    'Prices updated ' + new Date().toLocaleTimeString('en-US', { timeStyle: 'short' });
+  document.getElementById('dash-source').textContent =
+    '↻ Prices auto-refresh every minute · YTD: ' +
+    (Object.keys(modelYTD).length ? 'loaded ✓' : 'upload Excel to populate');
+
+  renderAll();
+
+  clearInterval(priceTimer);
+  priceTimer = setInterval(fetchAllPrices, REFRESH_MS);
+}
+
+// ── CALC HELPERS ────────────────────────────────────────────────────
+function calcModelDaily(model) {
+  let total = 0;
+  for (const h of model.holdings) {
+    if (h.ticker === 'CASH') continue;
+    const p = etfPrices[h.ticker];
+    if (p) total += h.weight * p.daily;
+  }
+  return total;
+}
+
+// Real-time YTD = compound yesterday's YTD with today's live daily
+function realtimeYTD(ytdBase, dailyReturn) {
+  if (ytdBase == null || dailyReturn == null) return ytdBase ?? null;
+  return (1 + ytdBase) * (1 + dailyReturn) - 1;
+}
+
+// ── RENDER ALL ──────────────────────────────────────────────────────
+function renderAll() {
+  renderBenchCards();
+  renderModelCards();
+  renderChart();
+  renderHoldingsDropdown();
+}
+
+// ── BENCHMARK CARDS ─────────────────────────────────────────────────
+function renderBenchCards() {
+  const row = document.getElementById('bench-cards');
+  row.innerHTML = '';
+  BENCHMARKS.forEach(b => {
+    const p     = etfPrices[b.ticker];
+    const daily = p?.daily ?? null;
+    const ytd   = realtimeYTD(benchYTD[b.dashName] ?? null, daily);
+    const noYTD = benchYTD[b.dashName] == null;
+    const div   = document.createElement('div');
+    div.className = `card bench ${daily > 0 ? 'positive' : daily < 0 ? 'negative' : ''}`;
+    div.innerHTML = `
+      <div class="card-accent"></div>
+      <div class="card-label">${b.name}</div>
+      <div class="card-value ${cc(daily)}">${fmt(daily)}</div>
+      <div class="card-type">Daily Return · ${b.ticker}</div>
+      <div class="card-divider"></div>
+      <div class="card-row"><span>YTD</span><span class="val ${cc(ytd)}">${noYTD
+        ? '<span style="color:var(--text-light);font-weight:400;font-size:0.78rem">Upload Excel</span>'
+        : fmt(ytd)}</span></div>`;
+    row.appendChild(div);
+  });
+}
+
+// ── MODEL CARDS ─────────────────────────────────────────────────────
+function renderModelCards() {
+  const row        = document.getElementById('model-cards');
+  row.innerHTML    = '';
+  const sp500Daily = etfPrices['VOO']?.daily ?? null;
+  const sp500YTD   = realtimeYTD(benchYTD['S&P 500'] ?? null, sp500Daily);
+
+  models.forEach(m => {
+    const daily      = calcModelDaily(m);
+    const dailyBench = sp500Daily != null ? daily - sp500Daily : null;
+    const ytd        = realtimeYTD(modelYTD[m.name] ?? null, daily);
+    const ytdBench   = (ytd != null && sp500YTD != null) ? ytd - sp500YTD : null;
+    const noYTD      = modelYTD[m.name] == null;
+
+    const div = document.createElement('div');
+    div.className = `card ${daily > 0 ? 'positive' : daily < 0 ? 'negative' : ''}`;
+    div.innerHTML = `
+      <div class="card-accent"></div>
+      <div class="card-label">${m.name}</div>
+      <div class="card-value ${cc(daily)}">${fmt(daily)}</div>
+      <div class="card-type">Daily Return (Live)</div>
+      <div class="card-divider"></div>
+      <div class="card-row"><span>vs S&P 500</span><span class="val ${cc(dailyBench)}">${fmt(dailyBench)}</span></div>
+      <div class="card-row"><span>YTD</span><span class="val ${cc(ytd)}">${noYTD
+        ? '<span style="color:var(--text-light);font-weight:400;font-size:0.78rem">Upload Excel</span>'
+        : fmt(ytd)}</span></div>
+      ${ytdBench != null
+        ? `<div class="card-row"><span>YTD vs S&P 500</span><span class="val ${cc(ytdBench)}">${fmt(ytdBench)}</span></div>`
+        : ''}`;
+    row.appendChild(div);
+  });
+}
+
+// ── CHART ────────────────────────────────────────────────────────────
+function renderChart() {
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+  const sp500Daily = etfPrices['VOO']?.daily ?? null;
+  const sp500YTD   = realtimeYTD(benchYTD['S&P 500'] ?? null, sp500Daily);
+
+  const benchEntries = BENCHMARKS.map(b => {
+    const daily = etfPrices[b.ticker]?.daily ?? 0;
+    const ytd   = realtimeYTD(benchYTD[b.dashName] ?? null, daily);
+    return { label: b.name, daily, ytd, isBench: true };
+  });
+  const modelEntries = models.map(m => {
+    const daily = calcModelDaily(m);
+    const ytd   = realtimeYTD(modelYTD[m.name] ?? null, daily);
+    return { label: m.name, daily, ytd, isBench: false };
+  });
+  const all = [...benchEntries, ...modelEntries];
+
+  chartInst = new Chart(document.getElementById('perf-chart'), {
+    type: 'bar',
+    data: {
+      labels: all.map(d => d.label),
+      datasets: [
+        {
+          label: 'Daily %',
+          data: all.map(d => +(d.daily * 100).toFixed(3)),
+          backgroundColor: all.map(d => d.isBench
+            ? (d.daily >= 0 ? 'rgba(64,145,108,0.8)' : 'rgba(184,50,50,0.65)')
+            : (d.daily >= 0 ? 'rgba(27,67,50,0.9)'   : 'rgba(184,50,50,0.65)')),
+          borderRadius: 4, barPercentage: 0.6, yAxisID: 'y'
+        },
+        {
+          label: 'YTD %',
+          data: all.map(d => d.ytd != null ? +(d.ytd * 100).toFixed(2) : null),
+          type: 'line', tension: 0.35, fill: false,
+          borderColor: 'rgba(201,168,76,0.95)', borderWidth: 2.5,
+          pointBackgroundColor: '#c9a84c', pointBorderColor: '#fff',
+          pointBorderWidth: 2, pointRadius: 6, pointHoverRadius: 8,
+          yAxisID: 'y2', spanGaps: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color:'#3d5240', font:{ family:'Source Sans 3', size:13 }, padding:20 } },
+        tooltip: {
+          backgroundColor:'#1b4332', borderColor:'#c9a84c', borderWidth:1,
+          titleColor:'#fff', titleFont:{ family:'Source Sans 3', size:13 },
+          bodyColor:'#d8f3dc', bodyFont:{ family:'Source Sans 3', size:13 }, padding:12,
+          callbacks: { label: c => c.parsed.y == null
+            ? ` ${c.dataset.label}: —`
+            : ` ${c.dataset.label}: ${c.parsed.y > 0 ? '+' : ''}${c.parsed.y.toFixed(2)}%` }
+        }
+      },
+      scales: {
+        x:  { ticks:{ color:'#7a917e', font:{ family:'Source Sans 3', size:12 } }, grid:{ color:'#eef0eb' } },
+        y:  { ticks:{ color:'#7a917e', font:{ family:'Source Sans 3', size:12 }, callback: v => v.toFixed(2)+'%' }, grid:{ color:'#eef0eb' } },
+        y2: { position:'right', ticks:{ color:'rgba(201,168,76,0.85)', font:{ family:'Source Sans 3', size:12 }, callback: v => v.toFixed(2)+'%' }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+// ── HOLDINGS DROPDOWN ───────────────────────────────────────────────
+function renderHoldingsDropdown() {
+  const select = document.getElementById('holdings-select');
+  const prev   = select.value;
+  select.innerHTML = '<option value="">— Select a portfolio —</option>';
+
+  // Always use the models array — weights from GitHub/upload, returns always live
+  models.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = m.name;
+    select.appendChild(opt);
+  });
+
+  select.value = (prev !== '' && select.querySelector(`option[value="${prev}"]`)) ? prev : '0';
+  showSelectedPortfolio();
+}
+
+function showSelectedPortfolio() {
+  const select    = document.getElementById('holdings-select');
+  const container = document.getElementById('holdings-panels');
+  const idx       = select.value;
+  if (idx === '' || !models[idx]) { container.innerHTML = ''; return; }
+
+  const m          = models[idx];
+  const sp500Daily = etfPrices['VOO']?.daily ?? null;
+  let   liveTotal  = 0;
+  let   rows       = '';
+
+  m.holdings.forEach(h => {
+    // Return: always live from Finnhub. CASH = 0.
+    const liveRet = (h.ticker !== 'CASH' && etfPrices[h.ticker])
+                      ? etfPrices[h.ticker].daily
+                      : 0;
+    const contrib  = h.weight * liveRet;
+    liveTotal     += contrib;
+
+    rows += `<tr>
+      <td><span class="ticker-tag">${h.ticker}</span></td>
+      <td>${(h.weight * 100).toFixed(1)}%</td>
+      <td class="${cc(liveRet)}">${h.ticker === 'CASH' ? '—' : fmt(liveRet)}</td>
+      <td class="${cc(contrib)}">${h.ticker === 'CASH' ? '—' : fmt(contrib)}</td>
+    </tr>`;
+  });
+
+  const liveBench = sp500Daily != null ? liveTotal - sp500Daily : null;
+
+  rows += `<tr class="total-row">
+    <td>Portfolio Total</td><td></td><td></td>
+    <td class="${cc(liveTotal)}">${fmt(liveTotal)}</td>
+  </tr>`;
+
+  const benchStr = liveBench != null
+    ? `<span class="panel-bench" style="margin-left:10px">vs S&P 500 <span class="${cc(liveBench)}">${fmt(liveBench)}</span></span>`
+    : '';
+
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'holdings-panel-wrap';
+  wrap.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">${m.name}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="panel-return ${cc(liveTotal)}">${fmt(liveTotal)}</span>${benchStr}
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Ticker</th><th>Weight</th><th>Return</th><th>Contribution</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  container.appendChild(wrap);
+}
+
+// ── STATUS / BANNER ─────────────────────────────────────────────────
+function setStatus(state, text) {
+  document.getElementById('sdot').className  = 'sdot ' + state;
+  document.getElementById('stext').textContent = text;
+}
+function setBanner(msg) {
+  const b = document.getElementById('price-loading-banner');
+  document.getElementById('banner-text').textContent = msg;
+  b.style.display = 'flex';
+}
+function hideBanner() {
+  document.getElementById('price-loading-banner').style.display = 'none';
+}
+
+// ── HELPERS ─────────────────────────────────────────────────────────
+function fmt(val, dec = 2) {
+  if (val == null || isNaN(val)) return '—';
+  const p = val * 100;
+  return (p > 0 ? '+' : '') + p.toFixed(dec) + '%';
+}
+function cc(val) {
+  if (val == null || isNaN(val)) return 'neu';
+  return val > 0 ? 'pos' : val < 0 ? 'neg' : 'neu';
+}
+</script>
+</body>
+</html>
